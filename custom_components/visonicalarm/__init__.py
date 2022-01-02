@@ -24,7 +24,7 @@ CONF_DOOR_WINDOW = 'door_window'
 CONF_NO_PIN_REQUIRED = 'no_pin_required'
 CONF_ARM_DISARM_INSTANT = 'arm_disarm_instant'
 CONF_USER_CODE = 'user_code'
-CONF_USER_ID = 'user_id'
+CONF_APP_ID = 'app_id'
 CONF_PANEL_ID = 'panel_id'
 CONF_PARTITION = 'partition'
 CONF_EVENT_HOUR_OFFSET = 'event_hour_offset'
@@ -46,8 +46,8 @@ HUB = None
 CONFIG_SCHEMA = vol.Schema({
     DOMAIN: vol.Schema({
         vol.Required(CONF_HOST): cv.string,
+        vol.Required(CONF_APP_ID): cv.string,
         vol.Required(CONF_USER_CODE): cv.string,
-        vol.Required(CONF_USER_ID): cv.string,
         vol.Required(CONF_PANEL_ID): cv.string,
         vol.Optional(CONF_PARTITION, default=DEFAULT_PARTITION): cv.string,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
@@ -91,7 +91,7 @@ class VisonicAlarmHub(Entity):
 
         self.alarm = visonicalarm.System(domain_config[CONF_HOST],
                                          domain_config[CONF_USER_CODE],
-                                         domain_config[CONF_USER_ID],
+                                         domain_config[CONF_APP_ID],
                                          domain_config[CONF_PANEL_ID],
                                          domain_config[CONF_PARTITION])
 
@@ -123,7 +123,6 @@ class VisonicAlarmHub(Entity):
             self.alarm.update_devices()
 
             self._last_update = datetime.now()
-#            _LOGGER.error('Update went OK [%s].', self.alarm.model)
         except Exception as ex:
             _LOGGER.error('Update failed: %s', ex)
             raise
