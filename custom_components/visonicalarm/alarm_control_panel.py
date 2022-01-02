@@ -17,15 +17,17 @@ from homeassistant.components.alarm_control_panel.const import (
     SUPPORT_ALARM_ARM_HOME
 )
 from . import HUB as hub
-from . import (CONF_USER_CODE, CONF_EVENT_HOUR_OFFSET, CONF_NO_PIN_REQUIRED)
+from . import (CONF_USER_CODE, CONF_EVENT_HOUR_OFFSET, CONF_NO_PIN_REQUIRED, CONF_ARM_DISARM_INSTANT)
 
 SUPPORT_VISONIC = (SUPPORT_ALARM_ARM_HOME | SUPPORT_ALARM_ARM_AWAY)
 
 _LOGGER = logging.getLogger(__name__)
 
+ATTR_SYSTEM_NAME = 'system_name'
 ATTR_SYSTEM_SERIAL_NUMBER = 'serial_number'
 ATTR_SYSTEM_MODEL = 'model'
 ATTR_SYSTEM_READY = 'ready'
+ATTR_SYSTEM_ACTIVE = 'active'
 ATTR_SYSTEM_CONNECTED = 'connected'
 ATTR_SYSTEM_SESSION_TOKEN = 'session_token'
 ATTR_SYSTEM_LAST_UPDATE = 'last_update'
@@ -58,7 +60,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                 old_state.state is not new_state.state:
             state = new_state.state
             if state == 'armed_home' or state == 'armed_away' or \
-                    state == 'Disarmed':
+                    state == 'disarmed':
                 last_event = hub.alarm.get_last_event(
                     timestamp_hour_offset=visonic_alarm.event_hour_offset)
                 visonic_alarm.update_last_event(last_event['user'],
@@ -76,9 +78,11 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
         self._state = STATE_UNKNOWN
         self._code = hub.config.get(CONF_USER_CODE)
         self._no_pin_required = hub.config.get(CONF_NO_PIN_REQUIRED)
+        self._arm_disarm_instant = hub.config.get(CONF_ARM_DISARM_INSTANT)
         self._changed_by = None
         self._changed_timestamp = None
         self._event_hour_offset = hub.config.get(CONF_EVENT_HOUR_OFFSET)
+        self._alarm = False
 
     @property
     def name(self):
@@ -90,8 +94,10 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
         """ Return the state attributes of the alarm system. """
         return {
             ATTR_SYSTEM_SERIAL_NUMBER: hub.alarm.serial_number,
+            ATTR_SYSTEM_NAME: hub.alarm.name,
             ATTR_SYSTEM_MODEL: hub.alarm.model,
             ATTR_SYSTEM_READY: hub.alarm.ready,
+            ATTR_SYSTEM_ACTIVE: hub.alarm.active,
             ATTR_SYSTEM_CONNECTED: hub.alarm.connected,
             ATTR_SYSTEM_SESSION_TOKEN: hub.alarm.session_token,
             ATTR_SYSTEM_LAST_UPDATE: hub.last_update,
@@ -152,17 +158,17 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
         """ Update alarm status. """
         hub.update()
         status = hub.alarm.state
-        if status == 'AWAY':
+        if status == 'Away' or status == 'Away Instant':
             self._state = STATE_ALARM_ARMED_AWAY
-        elif status == 'HOME':
+        elif status == 'Home' or status == 'Home Instant':
             self._state = STATE_ALARM_ARMED_HOME
-        elif status == 'DISARM':
+        elif status == 'Disarm':
             self._state = STATE_ALARM_DISARMED
-        elif status == 'ARMING':
+        elif status == 'ExitDelayHome' or status == 'ExitDelayAway' or status == 'ExitDelayHome Instant' or status == 'ExitDelayAway Instant':
             self._state = STATE_ALARM_ARMING
-        elif status == 'ENTRYDELAY':
+        elif status == 'EntryDelay':
             self._state = STATE_ALARM_PENDING
-        elif status == 'ALARM':
+        elif status == 'Alarm':
             self._state = STATE_ALARM_TRIGGERED
         else:
             self._state = status
@@ -191,7 +197,10 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
                 return
 
         if hub.alarm.ready:
-            hub.alarm.arm_home()
+            if self._arm_disarm_instant:
+                hub.alarm.arm_home_instant()
+            else:
+                hub.alarm.arm_home()
 
             sleep(1)
             self.update()
@@ -208,7 +217,10 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
                 return
             
         if hub.alarm.ready:
-            hub.alarm.arm_away()
+            if self._arm_disarm_instant:
+                hub.alarm.arm_away_instant()
+            else:
+                hub.alarm.arm_away()
 
             sleep(1)
             self.update()
